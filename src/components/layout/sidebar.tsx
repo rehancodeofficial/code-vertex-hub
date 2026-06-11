@@ -6,7 +6,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const nav = [
+import type { Role } from "@/lib/mock-data";
+
+const nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard; roles: Role[] }> = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "employee", "hr", "manager"] },
   { to: "/employees", label: "Employees", icon: Users, roles: ["admin", "hr", "manager"] },
   { to: "/departments", label: "Departments", icon: Building2, roles: ["admin", "hr"] },
@@ -20,7 +22,7 @@ const nav = [
   { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "hr", "manager"] },
   { to: "/audit-logs", label: "Audit Logs", icon: ScrollText, roles: ["admin"] },
   { to: "/settings", label: "Settings", icon: Settings, roles: ["admin", "employee", "hr", "manager"] },
-] as const;
+];
 
 export function Sidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname });

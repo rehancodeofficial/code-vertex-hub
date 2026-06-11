@@ -48,7 +48,7 @@ export const createEmployeeFn = createServerFn({ method: "POST" })
     departmentId: z.string(),
     designation: z.string(),
     joiningDate: z.string(),
-    status: z.enum(["active", "on_leave", "probation", "terminated"]),
+    status: z.enum(["active", "on_leave", "probation", "terminated", "pending"]),
     salary: z.number().positive(),
     role: z.enum(["admin", "employee", "manager", "supervisor", "accountant"])
   }))
@@ -118,7 +118,7 @@ export const deleteEmployeeFn = createServerFn({ method: "POST" })
 export const getDepartmentsFn = createServerFn({ method: "GET" })
   .handler(async () => {
     requireAuth();
-    return db.data?.departments || [];
+    return db.getDepartments() || [];
   });
 
 // ------------------------------------

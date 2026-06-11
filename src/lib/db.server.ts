@@ -154,6 +154,7 @@ class ServerDatabase {
   }
 
   // Operations
+  getDepartments() { return this.data.departments; }
   getEmployees() { return this.data.employees; }
   getEmployee(id: string) { return this.data.employees.find(e => e.id === id); }
   getEmployeeByEmail(email: string) { return this.data.employees.find(e => e.email.toLowerCase() === email.toLowerCase()); }

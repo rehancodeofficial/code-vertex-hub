@@ -84,7 +84,7 @@ export const signupFn = createServerFn({ method: "POST" })
       id: `n-${Date.now()}`,
       title: "New Registration Request",
       body: `${data.fullName} has registered as a ${data.role} and is pending approval.`,
-      kind: "employee",
+      kind: "system",
       unread: true,
       createdAt: new Date().toISOString()
     });

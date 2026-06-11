@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/page-header";
@@ -15,9 +14,9 @@ import { formatDate, initials } from "@/lib/format";
 import { toast } from "sonner";
 import { getAttendanceFn, getEmployeesFn, checkInFn, checkOutFn } from "@/lib/api/app.functions";
 
-export const Route = createFileRoute("/_app/attendance")({ component: AttendancePage });
 
-function AttendancePage() {
+
+export function AttendancePage() {
   const queryClient = useQueryClient();
   const user = useAuth((s) => s.user)!;
   const [q, setQ] = useState("");

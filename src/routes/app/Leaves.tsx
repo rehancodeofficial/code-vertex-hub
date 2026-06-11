@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/page-header";
@@ -20,9 +19,9 @@ import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { getLeavesFn, getEmployeesFn, applyLeaveFn, updateLeaveStatusFn } from "@/lib/api/app.functions";
 
-export const Route = createFileRoute("/_app/leaves")({ component: LeavesPage });
 
-function LeavesPage() {
+
+export function LeavesPage() {
   const queryClient = useQueryClient();
   const user = useAuth((s) => s.user)!;
   const isAdmin = user.role !== "employee";

@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/page-header";
@@ -26,9 +25,9 @@ const reports = [
   { id: "asset", title: "Asset report", desc: "Inventory tags, categories, values, and assignees." },
 ];
 
-export const Route = createFileRoute("/_app/reports")({ component: ReportsPage });
 
-function ReportsPage() {
+
+export function ReportsPage() {
   const [exportingType, setExportingType] = useState<string | null>(null);
 
   // Queries

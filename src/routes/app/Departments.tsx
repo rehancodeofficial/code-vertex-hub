@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,9 +6,9 @@ import { Building2, Plus, Users } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials, formatDate } from "@/lib/format";
 
-export const Route = createFileRoute("/_app/departments")({ component: DepartmentsPage });
 
-function DepartmentsPage() {
+
+export function DepartmentsPage() {
   return (
     <>
       <PageHeader

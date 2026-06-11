@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,9 +5,9 @@ import { documents, employeeById } from "@/lib/mock-data";
 import { FileText, Upload, Download } from "lucide-react";
 import { formatDate } from "@/lib/format";
 
-export const Route = createFileRoute("/_app/documents")({ component: DocumentsPage });
 
-function DocumentsPage() {
+
+export function DocumentsPage() {
   return (
     <>
       <PageHeader

@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,9 +14,9 @@ const columns = [
   { id: "done", title: "Done" },
 ] as const;
 
-export const Route = createFileRoute("/_app/tasks")({ component: TasksPage });
 
-function TasksPage() {
+
+export function TasksPage() {
   return (
     <>
       <PageHeader

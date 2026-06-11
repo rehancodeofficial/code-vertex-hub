@@ -1,5 +1,5 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useNavigate, Link } from "react-router";
 import { useAuth } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,7 @@ import { Hexagon, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { Role } from "@/lib/mock-data";
 
-export const Route = createFileRoute("/auth/signup")({
-  component: SignupPage,
-});
-
-function SignupPage() {
+export function SignupPage() {
   const navigate = useNavigate();
   const user = useAuth((s) => s.user);
   const signup = useAuth((s) => s.signup);
@@ -26,7 +22,7 @@ function SignupPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) navigate({ to: "/dashboard" });
+    if (user) navigate("/dashboard");
   }, [user, navigate]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -38,15 +34,16 @@ function SignupPage() {
     setLoading(true);
     try {
       const res = await signup(fullName, email, password, departmentId, designation, role);
-      if (res && (res as any).isPending) {
+      if (res?.isPending) {
         toast.success("Registration request submitted! Your account is pending administrator approval.");
-        navigate({ to: "/auth" });
+        navigate("/auth");
       } else {
         toast.success(`Welcome, ${fullName.split(" ")[0]}! Your account has been registered.`);
-        navigate({ to: "/dashboard" });
+        navigate("/dashboard");
       }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to register account");
+    } catch (err: unknown) {
+      const error = err as Error;
+      toast.error(error.message || "Failed to register account");
     } finally {
       setLoading(false);
     }
@@ -130,7 +127,7 @@ function SignupPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="department">Department</Label>
-                <select 
+                <select
                   id="department"
                   value={departmentId}
                   onChange={(e) => setDepartmentId(e.target.value)}
@@ -147,7 +144,7 @@ function SignupPage() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="role">Work Role</Label>
-                <select 
+                <select
                   id="role"
                   value={role}
                   onChange={(e) => setRole(e.target.value as Role)}

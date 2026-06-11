@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router";
 import { useAuth } from "@/lib/auth-store";
 import { StatCard } from "@/components/ui-ext/stat-card";
 import { PageHeader } from "@/components/layout/page-header";
@@ -22,9 +22,9 @@ import {
 } from "recharts";
 import { useMemo } from "react";
 
-export const Route = createFileRoute("/_app/dashboard")({ component: Dashboard });
 
-function Dashboard() {
+
+export function Dashboard() {
   const user = useAuth((s) => s.user)!;
   if (user.role === "employee") return <EmployeeDashboard />;
   return <AdminDashboard />;

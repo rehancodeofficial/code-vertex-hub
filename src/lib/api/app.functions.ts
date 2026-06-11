@@ -1,445 +1,426 @@
-import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
-import { db } from "../db.server";
-import { requireAuth, requireRole } from "../auth.server";
-import type { Employee, AttendanceRecord, LeaveRequest, Project, Asset, DocumentItem, Role } from "../mock-data";
+import { getDb, saveDb, initDb } from "./data";
+import { getSession } from "./auth";
+import type { Employee, AttendanceRecord, LeaveRequest, DocumentItem, Asset, Notification as NotificationType, AuditLog } from "../mock-data";
+
+function requireAuth() {
+  const session = getSession();
+  if (!session) throw new Error("Unauthorized");
+  return session;
+}
+
+function requireRole(roles: string[]) {
+  const session = requireAuth();
+  if (!roles.includes(session.role)) {
+    throw new Error("Forbidden");
+  }
+  return session;
+}
+
+function logAction(actor: string, action: string, target: string) {
+  const db = getDb();
+  db.auditLogs.unshift({
+    id: `au-${Date.now()}`,
+    actor,
+    action,
+    target,
+    timestamp: new Date().toISOString(),
+    ip: "—"
+  });
+  saveDb(db);
+}
 
 // ------------------------------------
 // Employee functions
 // ------------------------------------
-export const getEmployeesFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const caller = requireAuth();
-    const all = db.getEmployees();
+export async function getEmployeesFn() {
+  const caller = requireAuth();
+  initDb();
+  const db = getDb();
+  return db.employees;
+}
 
-    // Enforce RBAC filtering
-    if (caller.role === "admin" || caller.role === "manager") {
-      return all;
-    }
-    // Employee can only see basic directory or limited details, but for the table listing let's filter or return all based on company policy.
-    // Let's return all so they can see team list, but salary field should be hidden on client unless role is admin/hr/accountant.
-    return all;
-  });
+export async function getEmployeeByIdFn({ data }: { data: { id: string } }) {
+  const caller = requireAuth();
+  initDb();
+  const db = getDb();
+  if (caller.role !== "admin" && caller.role !== "manager" && caller.id !== data.id) {
+    throw new Error("Forbidden: You can only view your own profile");
+  }
+  const emp = db.employees.find((e) => e.id === data.id);
+  if (!emp) throw new Error("Employee not found");
+  return emp;
+}
 
-export const getEmployeeByIdFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ id: z.string() }))
-  .handler(async ({ data }) => {
-    const caller = requireAuth();
-    
-    // RBAC check: employees can only view their own profile, others (admin, manager) can view any
-    if (caller.role !== "admin" && caller.role !== "manager" && caller.id !== data.id) {
-      throw new Error("Forbidden: You can only view your own profile");
-    }
+export async function createEmployeeFn({ data }: { data: any }) {
+  const caller = requireRole(["admin", "manager"]);
+  initDb();
+  const db = getDb();
+  const existing = db.employees.find(e => e.email.toLowerCase() === data.email.toLowerCase());
+  if (existing) throw new Error("Email already registered");
 
-    const emp = db.getEmployee(data.id);
-    if (!emp) throw new Error("Employee not found");
-    return emp;
-  });
+  const id = `e-${Date.now()}`;
+  const employeeCode = `CVS-${Math.floor(100 + Math.random() * 900)}`;
+  const emp: Employee = { id, employeeCode, ...data };
+  db.employees.push(emp);
+  
+  // Default password demo1234
+  let hash = 0;
+  const pwd = "demo1234";
+  for (let i = 0; i < pwd.length; i++) {
+    hash = (hash << 5) - hash + pwd.charCodeAt(i);
+    hash |= 0;
+  }
+  db.credentials.push({ email: data.email, passwordHash: `demo_${hash}` });
+  
+  saveDb(db);
+  logAction(caller.name, "CREATE", `Employee ${emp.id} — ${emp.fullName}`);
+  return emp;
+}
 
-export const createEmployeeFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({
-    fullName: z.string().min(2),
-    email: z.string().email(),
-    phone: z.string(),
-    cnic: z.string(),
-    address: z.string(),
-    gender: z.enum(["male", "female", "other"]),
-    dob: z.string(),
-    departmentId: z.string(),
-    designation: z.string(),
-    joiningDate: z.string(),
-    status: z.enum(["active", "on_leave", "probation", "terminated", "pending"]),
-    salary: z.number().positive(),
-    role: z.enum(["admin", "employee", "manager", "supervisor", "accountant"])
-  }))
-  .handler(async ({ data }) => {
-    const caller = requireRole(["admin", "manager"]);
-    const existing = db.getEmployeeByEmail(data.email);
-    if (existing) throw new Error("Email already registered");
+export async function updateEmployeeFn({ data }: { data: { id: string; updates: any } }) {
+  const caller = requireAuth();
+  initDb();
+  const db = getDb();
+  
+  if (caller.role !== "admin" && caller.role !== "manager" && caller.id !== data.id) {
+    throw new Error("Forbidden: Insufficient privileges to update employee details");
+  }
 
-    const id = `e-${Date.now()}`;
-    const employeeCode = `CVS-${Math.floor(100 + Math.random() * 900)}`;
-    const passHash = require("../db.server").hashPassword("demo1234"); // Default password
+  const updates = { ...data.updates };
+  if (caller.role !== "admin" && caller.role !== "manager") {
+    delete updates.salary;
+    delete updates.role;
+    delete updates.status;
+    delete updates.departmentId;
+    delete updates.joiningDate;
+    delete updates.employeeCode;
+  }
 
-    const emp = db.createEmployee({
-      id,
-      employeeCode,
-      ...data
-    }, passHash);
+  const idx = db.employees.findIndex(e => e.id === data.id);
+  if (idx === -1) throw new Error("Employee not found");
 
-    db.logAction(caller.name, "CREATE", `Employee ${emp.id} — ${emp.fullName}`);
-    return emp;
-  });
+  db.employees[idx] = { ...db.employees[idx], ...updates };
+  saveDb(db);
+  logAction(caller.name, "UPDATE", `Employee ${data.id} details`);
+  return db.employees[idx];
+}
 
-export const updateEmployeeFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({
-    id: z.string(),
-    updates: z.any()
-  }))
-  .handler(async ({ data }) => {
-    const caller = requireAuth();
-    
-    // RBAC: employees can edit some of their own details (e.g. phone, address). Admin/Manager can edit anything.
-    if (caller.role !== "admin" && caller.role !== "manager" && caller.id !== data.id) {
-      throw new Error("Forbidden: Insufficient privileges to update employee details");
-    }
+export async function deleteEmployeeFn({ data }: { data: { id: string } }) {
+  const caller = requireRole(["admin"]);
+  initDb();
+  const db = getDb();
+  
+  const idx = db.employees.findIndex(e => e.id === data.id);
+  if (idx === -1) throw new Error("Employee not found");
 
-    // Secure payload: prevent employees from changing role, department, salary or status
-    const updates = { ...data.updates };
-    if (caller.role !== "admin" && caller.role !== "manager") {
-      delete updates.salary;
-      delete updates.role;
-      delete updates.status;
-      delete updates.departmentId;
-      delete updates.joiningDate;
-      delete updates.employeeCode;
-    }
-
-    const updated = db.updateEmployee(data.id, updates);
-    if (!updated) throw new Error("Employee not found");
-
-    db.logAction(caller.name, "UPDATE", `Employee ${data.id} details`);
-    return updated;
-  });
-
-export const deleteEmployeeFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ id: z.string() }))
-  .handler(async ({ data }) => {
-    const caller = requireRole(["admin"]);
-    const success = db.deleteEmployee(data.id);
-    if (!success) throw new Error("Employee not found");
-    db.logAction(caller.name, "DELETE", `Employee ${data.id}`);
-    return { success: true };
-  });
+  db.employees.splice(idx, 1);
+  saveDb(db);
+  logAction(caller.name, "DELETE", `Employee ${data.id}`);
+  return { success: true };
+}
 
 // ------------------------------------
 // Departments
 // ------------------------------------
-export const getDepartmentsFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    requireAuth();
-    return db.getDepartments() || [];
-  });
+export async function getDepartmentsFn() {
+  requireAuth();
+  initDb();
+  return getDb().departments;
+}
 
 // ------------------------------------
 // Attendance functions
 // ------------------------------------
-export const getAttendanceFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const caller = requireAuth();
-    const all = db.getAttendance();
+export async function getAttendanceFn() {
+  const caller = requireAuth();
+  initDb();
+  const all = getDb().attendance;
+  if (caller.role === "employee") {
+    return all.filter(r => r.employeeId === caller.employeeId);
+  }
+  return all;
+}
 
-    // Employees can only see their own attendance
-    if (caller.role === "employee") {
-      return all.filter(r => r.employeeId === caller.employeeId);
-    }
-    return all;
-  });
+export async function checkInFn() {
+  const caller = requireAuth();
+  initDb();
+  const db = getDb();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  
+  const existing = db.attendance.find(r => r.employeeId === caller.employeeId && r.date === todayStr);
+  if (existing) {
+    throw new Error("Already checked in today");
+  }
 
-export const checkInFn = createServerFn({ method: "POST" })
-  .handler(async () => {
-    const caller = requireAuth();
-    const todayStr = new Date().toISOString().slice(0, 10);
-    
-    // Check if already checked in today
-    const existing = db.getAttendance().find(r => r.employeeId === caller.employeeId && r.date === todayStr);
-    if (existing) {
-      throw new Error("Already checked in today");
-    }
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+  
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  const totalMins = hours * 60 + minutes;
+  const limitMins = 9 * 60 + 15;
+  const status = totalMins > limitMins ? "late" : "present";
 
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
-    
-    // Calculate status (late if checked in after 09:15)
-    const [hours, minutes] = timeStr.split(":").map(Number);
-    const totalMins = hours * 60 + minutes;
-    const limitMins = 9 * 60 + 15; // 09:15 AM
-    const status = totalMins > limitMins ? "late" : "present";
+  const rec: AttendanceRecord = {
+    id: `a-${caller.employeeId}-${todayStr}`,
+    employeeId: caller.employeeId,
+    date: todayStr,
+    checkIn: timeStr,
+    checkOut: null,
+    status,
+    hours: 0
+  };
 
-    const rec: AttendanceRecord = {
-      id: `a-${caller.employeeId}-${todayStr}`,
-      employeeId: caller.employeeId,
-      date: todayStr,
-      checkIn: timeStr,
-      checkOut: null,
-      status,
-      hours: 0
-    };
+  db.attendance.push(rec);
+  saveDb(db);
+  logAction(caller.name, "ATTENDANCE_CHECK_IN", `Check-in at ${timeStr}`);
+  return rec;
+}
 
-    db.createAttendance(rec);
-    db.logAction(caller.name, "ATTENDANCE_CHECK_IN", `Check-in at ${timeStr}`);
-    return rec;
-  });
+export async function checkOutFn() {
+  const caller = requireAuth();
+  initDb();
+  const db = getDb();
+  const todayStr = new Date().toISOString().slice(0, 10);
 
-export const checkOutFn = createServerFn({ method: "POST" })
-  .handler(async () => {
-    const caller = requireAuth();
-    const todayStr = new Date().toISOString().slice(0, 10);
+  const existingIdx = db.attendance.findIndex(r => r.employeeId === caller.employeeId && r.date === todayStr);
+  if (existingIdx === -1 || !db.attendance[existingIdx].checkIn) {
+    throw new Error("Must check in before checking out");
+  }
+  if (db.attendance[existingIdx].checkOut) {
+    throw new Error("Already checked out today");
+  }
 
-    const existing = db.getAttendance().find(r => r.employeeId === caller.employeeId && r.date === todayStr);
-    if (!existing || !existing.checkIn) {
-      throw new Error("Must check in before checking out");
-    }
-    if (existing.checkOut) {
-      throw new Error("Already checked out today");
-    }
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
 
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+  const existing = db.attendance[existingIdx];
+  const [inH, inM] = (existing.checkIn || "00:00").split(":").map(Number);
+  const [outH, outM] = timeStr.split(":").map(Number);
+  const workedMins = (outH * 60 + outM) - (inH * 60 + inM);
+  const hours = Math.round((workedMins / 60) * 100) / 100;
 
-    // Calculate hours worked
-    const [inH, inM] = existing.checkIn.split(":").map(Number);
-    const [outH, outM] = timeStr.split(":").map(Number);
-    const workedMins = (outH * 60 + outM) - (inH * 60 + inM);
-    const hours = Math.round((workedMins / 60) * 100) / 100;
-
-    const updates: Partial<AttendanceRecord> = {
-      checkOut: timeStr,
-      hours: Math.max(0, hours)
-    };
-
-    const updated = db.updateAttendance(existing.id, updates);
-    db.logAction(caller.name, "ATTENDANCE_CHECK_OUT", `Check-out at ${timeStr}`);
-    return updated;
-  });
+  db.attendance[existingIdx] = { ...existing, checkOut: timeStr, hours: Math.max(0, hours) };
+  saveDb(db);
+  logAction(caller.name, "ATTENDANCE_CHECK_OUT", `Check-out at ${timeStr}`);
+  return db.attendance[existingIdx];
+}
 
 // ------------------------------------
 // Leave functions
 // ------------------------------------
-export const getLeavesFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const caller = requireAuth();
-    const all = db.getLeaves();
+export async function getLeavesFn() {
+  const caller = requireAuth();
+  initDb();
+  const all = getDb().leaveRequests;
+  if (caller.role === "employee") {
+    return all.filter(l => l.employeeId === caller.employeeId);
+  }
+  return all;
+}
 
-    if (caller.role === "employee") {
-      return all.filter(l => l.employeeId === caller.employeeId);
-    }
-    // Managers can see all, or we could filter by department
-    return all;
+export async function applyLeaveFn({ data }: { data: any }) {
+  const caller = requireAuth();
+  initDb();
+  const db = getDb();
+  
+  const start = new Date(data.startDate);
+  const end = new Date(data.endDate);
+  if (end < start) throw new Error("End date cannot be earlier than start date");
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+  const newRequest: LeaveRequest = {
+    id: `l-${Date.now()}`,
+    employeeId: caller.employeeId,
+    type: data.type,
+    startDate: data.startDate,
+    endDate: data.endDate,
+    days,
+    reason: data.reason,
+    status: "pending",
+    appliedAt: new Date().toISOString().slice(0, 10)
+  };
+
+  db.leaveRequests.push(newRequest);
+  
+  db.notifications.unshift({
+    id: `n-${Date.now()}`,
+    title: "New Leave Request",
+    body: `${caller.name} requested ${days} day(s) of ${data.type} leave.`,
+    kind: "leave",
+    unread: true,
+    createdAt: new Date().toISOString()
   });
 
-export const applyLeaveFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({
-    type: z.enum(["annual", "sick", "casual", "emergency"]),
-    startDate: z.string(),
-    endDate: z.string(),
-    reason: z.string().min(5)
-  }))
-  .handler(async ({ data }) => {
-    const caller = requireAuth();
-    
-    // Calculate difference in days
-    const start = new Date(data.startDate);
-    const end = new Date(data.endDate);
-    if (end < start) {
-      throw new Error("End date cannot be earlier than start date");
-    }
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  saveDb(db);
+  logAction(caller.name, "APPLY_LEAVE", `Applied for ${days} days`);
+  return newRequest;
+}
 
-    const id = `l-${Date.now()}`;
-    const newRequest: LeaveRequest = {
-      id,
-      employeeId: caller.employeeId,
-      type: data.type,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      days,
-      reason: data.reason,
-      status: "pending",
-      appliedAt: new Date().toISOString().slice(0, 10)
-    };
+export async function updateLeaveStatusFn({ data }: { data: { id: string; status: "approved" | "rejected" } }) {
+  const caller = requireRole(["admin", "manager"]);
+  initDb();
+  const db = getDb();
+  
+  const idx = db.leaveRequests.findIndex(l => l.id === data.id);
+  if (idx === -1) throw new Error("Leave request not found");
 
-    db.createLeave(newRequest);
-
-    // Create system notification for HR/Managers
-    db.createNotification({
-      id: `n-${Date.now()}`,
-      title: "New Leave Request",
-      body: `${caller.name} requested ${days} day(s) of ${data.type} leave.`,
-      kind: "leave",
-      unread: true,
-      createdAt: new Date().toISOString()
-    });
-
-    db.logAction(caller.name, "APPLY_LEAVE", `Applied for ${days} days`);
-    return newRequest;
+  const request = db.leaveRequests[idx];
+  db.leaveRequests[idx].status = data.status;
+  
+  db.notifications.unshift({
+    id: `n-${Date.now()}`,
+    title: `Leave Request ${data.status.toUpperCase()}`,
+    body: `Your request for ${request.type} leave starting on ${request.startDate} has been ${data.status}.`,
+    kind: "leave",
+    unread: true,
+    createdAt: new Date().toISOString()
   });
 
-export const updateLeaveStatusFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({
-    id: z.string(),
-    status: z.enum(["approved", "rejected"])
-  }))
-  .handler(async ({ data }) => {
-    const caller = requireRole(["admin", "manager"]);
-    
-    const request = db.getLeaves().find(l => l.id === data.id);
-    if (!request) throw new Error("Leave request not found");
-
-    const updated = db.updateLeave(data.id, { status: data.status });
-    
-    // Notify employee
-    db.createNotification({
-      id: `n-${Date.now()}`,
-      title: `Leave Request ${data.status.toUpperCase()}`,
-      body: `Your request for ${request.type} leave starting on ${request.startDate} has been ${data.status}.`,
-      kind: "leave",
-      unread: true,
-      createdAt: new Date().toISOString()
-    });
-
-    db.logAction(caller.name, `LEAVE_${data.status.toUpperCase()}`, `Leave request ${data.id}`);
-    return updated;
-  });
+  saveDb(db);
+  logAction(caller.name, `LEAVE_${data.status.toUpperCase()}`, `Leave request ${data.id}`);
+  return db.leaveRequests[idx];
+}
 
 // ------------------------------------
 // Document functions
 // ------------------------------------
-export const getDocumentsFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const caller = requireAuth();
-    const all = db.getDocuments();
-    if (caller.role === "employee") {
-      return all.filter(d => d.employeeId === caller.employeeId);
-    }
-    return all;
-  });
+export async function getDocumentsFn() {
+  const caller = requireAuth();
+  initDb();
+  const all = getDb().documents;
+  if (caller.role === "employee") {
+    return all.filter(d => d.employeeId === caller.employeeId);
+  }
+  return all;
+}
 
-export const uploadDocumentFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({
-    name: z.string().min(1),
-    type: z.enum(["contract", "certificate", "id", "offer_letter", "other"]),
-    employeeId: z.string(),
-    fileBase64: z.string() // Simulated file saving in database
-  }))
-  .handler(async ({ data }) => {
-    const caller = requireAuth();
-    
-    // Check privilege
-    if (caller.role !== "admin" && caller.role !== "manager" && caller.id !== data.employeeId) {
-      throw new Error("Forbidden: Insufficient privileges to upload documents for this employee");
-    }
+export async function uploadDocumentFn({ data }: { data: any }) {
+  const caller = requireAuth();
+  initDb();
+  const db = getDb();
+  
+  if (caller.role !== "admin" && caller.role !== "manager" && caller.id !== data.employeeId) {
+    throw new Error("Forbidden: Insufficient privileges to upload documents for this employee");
+  }
 
-    const doc: DocumentItem = {
-      id: `doc-${Date.now()}`,
-      name: data.name,
-      type: data.type,
-      employeeId: data.employeeId,
-      uploadedAt: new Date().toISOString().slice(0, 10),
-      sizeKb: Math.round(data.fileBase64.length * 0.75 / 1024)
-    };
+  const doc: DocumentItem = {
+    id: `doc-${Date.now()}`,
+    name: data.name,
+    type: data.type,
+    employeeId: data.employeeId,
+    uploadedAt: new Date().toISOString().slice(0, 10),
+    sizeKb: Math.round(data.fileBase64.length * 0.75 / 1024)
+  };
 
-    db.createDocument(doc);
-    db.logAction(caller.name, "UPLOAD_DOCUMENT", `Document ${doc.name} uploaded`);
-    return doc;
-  });
+  db.documents.push(doc);
+  saveDb(db);
+  logAction(caller.name, "UPLOAD_DOCUMENT", `Document ${doc.name} uploaded`);
+  return doc;
+}
 
-export const deleteDocumentFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ id: z.string() }))
-  .handler(async ({ data }) => {
-    const caller = requireAuth();
-    const doc = db.getDocuments().find(d => d.id === data.id);
-    if (!doc) throw new Error("Document not found");
+export async function deleteDocumentFn({ data }: { data: { id: string } }) {
+  const caller = requireAuth();
+  initDb();
+  const db = getDb();
+  
+  const idx = db.documents.findIndex(d => d.id === data.id);
+  if (idx === -1) throw new Error("Document not found");
 
-    if (caller.role !== "admin" && caller.role !== "manager" && caller.id !== doc.employeeId) {
-      throw new Error("Forbidden: Insufficient privileges");
-    }
+  const doc = db.documents[idx];
+  if (caller.role !== "admin" && caller.role !== "manager" && caller.id !== doc.employeeId) {
+    throw new Error("Forbidden: Insufficient privileges");
+  }
 
-    db.deleteDocument(data.id);
-    db.logAction(caller.name, "DELETE_DOCUMENT", `Document ${doc.name} deleted`);
-    return { success: true };
-  });
+  db.documents.splice(idx, 1);
+  saveDb(db);
+  logAction(caller.name, "DELETE_DOCUMENT", `Document ${doc.name} deleted`);
+  return { success: true };
+}
 
 // ------------------------------------
 // Assets
 // ------------------------------------
-export const getAssetsFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const caller = requireAuth();
-    const all = db.getAssets();
-    if (caller.role === "employee") {
-      return all.filter(a => a.assignedTo === caller.employeeId);
-    }
-    return all;
-  });
+export async function getAssetsFn() {
+  const caller = requireAuth();
+  initDb();
+  const all = getDb().assets;
+  if (caller.role === "employee") {
+    return all.filter(a => a.assignedTo === caller.employeeId);
+  }
+  return all;
+}
 
-export const createAssetFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({
-    tag: z.string(),
-    name: z.string(),
-    category: z.enum(["laptop", "monitor", "keyboard", "mouse", "headset", "furniture", "other"]),
-    serial: z.string(),
-    status: z.enum(["available", "assigned", "maintenance", "retired"]),
-    assignedTo: z.string().nullable(),
-    purchaseDate: z.string(),
-    value: z.number().positive()
-  }))
-  .handler(async ({ data }) => {
-    const caller = requireRole(["admin", "accountant"]);
-    const asset = db.createAsset({
-      id: `as-${Date.now()}`,
-      ...data
-    });
-    db.logAction(caller.name, "CREATE_ASSET", `Asset ${asset.tag}`);
-    return asset;
-  });
+export async function createAssetFn({ data }: { data: any }) {
+  const caller = requireRole(["admin", "accountant"]);
+  initDb();
+  const db = getDb();
+  const asset: Asset = { id: `as-${Date.now()}`, ...data };
+  db.assets.push(asset);
+  saveDb(db);
+  logAction(caller.name, "CREATE_ASSET", `Asset ${asset.tag}`);
+  return asset;
+}
 
-export const updateAssetFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({
-    id: z.string(),
-    updates: z.any()
-  }))
-  .handler(async ({ data }) => {
-    const caller = requireRole(["admin", "accountant"]);
-    const updated = db.updateAsset(data.id, data.updates);
-    if (!updated) throw new Error("Asset not found");
-    db.logAction(caller.name, "UPDATE_ASSET", `Asset ${data.id}`);
-    return updated;
-  });
+export async function updateAssetFn({ data }: { data: { id: string; updates: any } }) {
+  const caller = requireRole(["admin", "accountant"]);
+  initDb();
+  const db = getDb();
+  const idx = db.assets.findIndex(a => a.id === data.id);
+  if (idx === -1) throw new Error("Asset not found");
+  
+  db.assets[idx] = { ...db.assets[idx], ...data.updates };
+  saveDb(db);
+  logAction(caller.name, "UPDATE_ASSET", `Asset ${data.id}`);
+  return db.assets[idx];
+}
 
 // ------------------------------------
 // Projects & Tasks
 // ------------------------------------
-export const getProjectsFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const caller = requireAuth();
-    const all = db.getProjects();
-    if (caller.role === "employee") {
-      return all.filter(p => p.memberIds.includes(caller.employeeId));
-    }
-    return all;
-  });
+export async function getProjectsFn() {
+  const caller = requireAuth();
+  initDb();
+  const all = getDb().projects;
+  if (caller.role === "employee") {
+    return all.filter(p => p.memberIds.includes(caller.employeeId));
+  }
+  return all;
+}
 
-export const getTasksFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const caller = requireAuth();
-    const all = db.getTasks();
-    if (caller.role === "employee") {
-      return all.filter(t => t.assigneeId === caller.employeeId);
-    }
-    return all;
-  });
+export async function getTasksFn() {
+  const caller = requireAuth();
+  initDb();
+  const all = getDb().tasks;
+  if (caller.role === "employee") {
+    return all.filter(t => t.assigneeId === caller.employeeId);
+  }
+  return all;
+}
 
 // ------------------------------------
 // Audit logs & Notifications
 // ------------------------------------
-export const getAuditLogsFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    requireRole(["admin", "accountant"]);
-    return db.getAuditLogs();
-  });
+export async function getAuditLogsFn() {
+  requireRole(["admin", "accountant"]);
+  initDb();
+  return getDb().auditLogs;
+}
 
-export const getNotificationsFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    requireAuth();
-    return db.getNotifications();
-  });
+export async function getNotificationsFn() {
+  requireAuth();
+  initDb();
+  return getDb().notifications;
+}
 
-export const markNotificationReadFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ id: z.string() }))
-  .handler(async ({ data }) => {
-    requireAuth();
-    db.markNotificationRead(data.id);
-    return { success: true };
-  });
+export async function markNotificationReadFn({ data }: { data: { id: string } }) {
+  requireAuth();
+  initDb();
+  const db = getDb();
+  const n = db.notifications.find(x => x.id === data.id);
+  if (n) {
+    n.unread = false;
+    saveDb(db);
+  }
+  return { success: true };
+}

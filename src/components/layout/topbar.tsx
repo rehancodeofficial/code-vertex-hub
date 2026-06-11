@@ -1,5 +1,5 @@
 import { useAuth } from "@/lib/auth-store";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router";
 import { Bell, Search, LogOut, User } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -91,7 +91,7 @@ export function Topbar() {
               className="gap-2 text-destructive focus:text-destructive"
               onClick={async () => {
                 await logout();
-                navigate({ to: "/auth" });
+                navigate("/auth");
               }}
             >
               <LogOut className="size-4" /> Sign out

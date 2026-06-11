@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
@@ -11,9 +10,9 @@ import { Plus, Search, Boxes } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export const Route = createFileRoute("/_app/assets")({ component: AssetsPage });
 
-function AssetsPage() {
+
+export function AssetsPage() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
   const filtered = assets.filter((a) => {

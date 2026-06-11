@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-store";
@@ -27,9 +27,9 @@ import {
 } from "@/lib/api/app.functions";
 import type { Employee, Role, EmploymentStatus } from "@/lib/mock-data";
 
-export const Route = createFileRoute("/_app/employees")({ component: EmployeesPage });
 
-function EmployeesPage() {
+
+export function EmployeesPage() {
   const queryClient = useQueryClient();
   const caller = useAuth((s) => s.user);
 
@@ -241,7 +241,7 @@ function EmployeesPage() {
                 {view.map((e) => (
                   <TableRow key={e.id} className="group">
                     <TableCell>
-                      <Link to="/employees/$id" params={{ id: e.id }} className="flex items-center gap-3 hover:text-primary">
+                      <Link to={`/employees/${e.id}`} className="flex items-center gap-3 hover:text-primary">
                         <Avatar className="size-9"><AvatarFallback className="text-xs gradient-primary text-primary-foreground">{initials(e.fullName)}</AvatarFallback></Avatar>
                         <div>
                           <div className="text-sm font-medium">{e.fullName}</div>
@@ -262,7 +262,7 @@ function EmployeesPage() {
                           <MoreHorizontal className="size-4" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild><Link to="/employees/$id" params={{ id: e.id }}>View profile</Link></DropdownMenuItem>
+                          <DropdownMenuItem asChild><Link to={`/employees/${e.id}`}>View profile</Link></DropdownMenuItem>
                           
                           {isHRorAdmin && (
                             <>

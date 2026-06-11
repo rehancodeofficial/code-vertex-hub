@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,9 +9,9 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Hexagon } from "lucide-react";
 
-export const Route = createFileRoute("/_app/settings")({ component: SettingsPage });
 
-function SettingsPage() {
+
+export function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" description="Manage company profile, security, and notification preferences." />

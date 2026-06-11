@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useParams } from "react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-store";
@@ -30,12 +30,10 @@ import {
 } from "@/lib/api/app.functions";
 import type { Employee, Role, EmploymentStatus } from "@/lib/mock-data";
 
-export const Route = createFileRoute("/_app/employees/$id")({
-  component: EmployeeProfile,
-});
 
-function EmployeeProfile() {
-  const { id } = Route.useParams();
+
+export function EmployeeProfile() {
+  const { id } = useParams();
   const queryClient = useQueryClient();
   const caller = useAuth((s) => s.user);
 
@@ -63,7 +61,7 @@ function EmployeeProfile() {
   const { data: emp, isLoading: loadingEmp, error: empError } = useQuery({
     queryKey: ["employee", id],
     queryFn: async () => {
-      const res = await getEmployeeByIdFn({ data: { id } });
+      const res = await getEmployeeByIdFn({ data: { id: id! } });
       setFormData({
         fullName: res.fullName,
         email: res.email,
@@ -108,7 +106,7 @@ function EmployeeProfile() {
 
   // Mutations
   const updateMutation = useMutation({
-    mutationFn: (updates: Partial<Employee>) => updateEmployeeFn({ data: { id, updates } }),
+    mutationFn: (updates: Partial<Employee>) => updateEmployeeFn({ data: { id: id!, updates } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employee", id] });
       queryClient.invalidateQueries({ queryKey: ["employees"] });

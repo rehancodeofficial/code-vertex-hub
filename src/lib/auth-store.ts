@@ -1,20 +1,22 @@
 import { create } from "zustand";
 import type { Role } from "./mock-data";
-import { loginFn, signupFn, logoutFn, meFn } from "./api/auth.functions";
+import { loginUser, signupUser, logoutUser, getSession, type SessionUser } from "./api/auth";
+import { initDb } from "./api/data";
 
-export interface SessionUser {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  employeeId: string;
-}
+export type { SessionUser };
 
 interface AuthState {
   user: SessionUser | null;
   loading: boolean;
   login: (email: string, password: string, remember?: boolean) => Promise<SessionUser>;
-  signup: (fullName: string, email: string, password: string, departmentId: string, designation: string, role: Role) => Promise<SessionUser>;
+  signup: (
+    fullName: string,
+    email: string,
+    password: string,
+    departmentId: string,
+    designation: string,
+    role: Role
+  ) => Promise<SessionUser & { isPending?: boolean }>;
   logout: () => Promise<void>;
   checkSession: () => Promise<SessionUser | null>;
 }
@@ -22,40 +24,36 @@ interface AuthState {
 export const useAuth = create<AuthState>((set) => ({
   user: null,
   loading: true,
-  
-  async login(email, password, remember = true) {
+
+  async login(email, password) {
     try {
-      const user = await loginFn({ data: { email, password, remember } });
+      const user = await loginUser(email, password);
       set({ user, loading: false });
       return user;
-    } catch (e: any) {
-      console.error("Login failed:", e);
-      throw new Error(e.message || "Invalid credentials");
+    } catch (e: unknown) {
+      const err = e as Error;
+      throw new Error(err.message || "Invalid credentials");
     }
   },
 
   async signup(fullName, email, password, departmentId, designation, role) {
     try {
-      const res = await signupFn({
-        data: { fullName, email, password, departmentId, designation, role }
-      });
-      if (res && (res as any).isPending) {
+      const res = await signupUser({ fullName, email, password, departmentId, designation, role });
+      if (res?.isPending) {
         set({ user: null, loading: false });
         return res;
       }
       set({ user: res, loading: false });
       return res;
-    } catch (e: any) {
-      console.error("Signup failed:", e);
-      throw new Error(e.message || "Failed to sign up");
+    } catch (e: unknown) {
+      const err = e as Error;
+      throw new Error(err.message || "Failed to sign up");
     }
   },
 
   async logout() {
     try {
-      await logoutFn();
-    } catch (e) {
-      console.error("Logout failed on server:", e);
+      await logoutUser();
     } finally {
       set({ user: null, loading: false });
     }
@@ -64,13 +62,13 @@ export const useAuth = create<AuthState>((set) => ({
   async checkSession() {
     set({ loading: true });
     try {
-      const user = await meFn();
+      initDb();
+      const user = getSession();
       set({ user, loading: false });
       return user;
-    } catch (e) {
+    } catch {
       set({ user: null, loading: false });
       return null;
     }
-  }
+  },
 }));
-

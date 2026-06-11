@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,9 +8,9 @@ import { projects, employeeById } from "@/lib/mock-data";
 import { formatCurrency, formatDate, initials } from "@/lib/format";
 import { Plus, CalendarRange, Wallet } from "lucide-react";
 
-export const Route = createFileRoute("/_app/projects")({ component: ProjectsPage });
 
-function ProjectsPage() {
+
+export function ProjectsPage() {
   return (
     <>
       <PageHeader

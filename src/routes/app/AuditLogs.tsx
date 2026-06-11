@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,9 +13,9 @@ const actionStyle: Record<string, string> = {
   ROLE_CHANGE: "bg-primary/15 text-primary border-primary/30",
 };
 
-export const Route = createFileRoute("/_app/audit-logs")({ component: AuditLogsPage });
 
-function AuditLogsPage() {
+
+export function AuditLogsPage() {
   return (
     <>
       <PageHeader title="Audit logs" description="Immutable record of all data changes, logins, and permission updates." />

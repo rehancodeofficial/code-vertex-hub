@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,9 +10,9 @@ const icons = {
   leave: Plane, task: ListChecks, attendance: Clock, project: FolderKanban, system: Cog,
 };
 
-export const Route = createFileRoute("/_app/notifications")({ component: NotificationsPage });
 
-function NotificationsPage() {
+
+export function NotificationsPage() {
   return (
     <>
       <PageHeader

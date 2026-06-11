@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,11 +7,10 @@ import { Card } from "@/components/ui/card";
 import { ArrowLeft, Hexagon } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/auth/forgot")({ component: ForgotPage });
-
-function ForgotPage() {
+export function ForgotPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <Card className="w-full max-w-md glass shadow-elevated p-8">
@@ -32,7 +31,12 @@ function ForgotPage() {
         ) : (
           <form
             className="mt-6 space-y-4"
-            onSubmit={(e) => { e.preventDefault(); if (!email) return; setSent(true); toast.success("Recovery email sent"); }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!email) return;
+              setSent(true);
+              toast.success("Recovery email sent");
+            }}
           >
             <div className="space-y-1.5">
               <Label htmlFor="email">Work email</Label>

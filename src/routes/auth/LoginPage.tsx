@@ -1,5 +1,5 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useNavigate, Link } from "react-router";
 import { useAuth } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Hexagon, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/auth/")({
-  component: AuthPage,
-});
-
-function AuthPage() {
+export function LoginPage() {
   const navigate = useNavigate();
   const user = useAuth((s) => s.user);
   const login = useAuth((s) => s.login);
@@ -23,7 +19,7 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) navigate({ to: "/dashboard" });
+    if (user) navigate("/dashboard");
   }, [user, navigate]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -36,9 +32,10 @@ function AuthPage() {
     try {
       const u = await login(email, password, remember);
       toast.success(`Welcome back, ${u.name.split(" ")[0]}`);
-      navigate({ to: "/dashboard" });
-    } catch (err: any) {
-      toast.error(err.message || "Invalid credentials");
+      navigate("/dashboard");
+    } catch (err: unknown) {
+      const error = err as Error;
+      toast.error(error.message || "Invalid credentials");
     } finally {
       setLoading(false);
     }

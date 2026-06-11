@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router";
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@/lib/api/query-hooks";
 import { useAuth } from "@/lib/auth-store";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
@@ -59,7 +59,7 @@ export function EmployeeProfile() {
 
   // Queries
   const { data: emp, isLoading: loadingEmp, error: empError } = useQuery({
-    queryKey: ["employee", id],
+    queryKey: ["employee", id as string],
     queryFn: async () => {
       const res = await getEmployeeByIdFn({ data: { id: id! } });
       setFormData({
@@ -108,7 +108,7 @@ export function EmployeeProfile() {
   const updateMutation = useMutation({
     mutationFn: (updates: Partial<Employee>) => updateEmployeeFn({ data: { id: id!, updates } }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["employee", id] });
+      queryClient.invalidateQueries({ queryKey: ["employee", id as string] });
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       toast.success("Profile updated successfully");
       setIsEditOpen(false);

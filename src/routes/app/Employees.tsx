@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@/lib/api/query-hooks";
 import { useAuth } from "@/lib/auth-store";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";

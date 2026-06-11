@@ -81,9 +81,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "VertexEMS by Code Vertex Solutions — manage employees, attendance, leave, projects, tasks, and assets in one premium workspace." },
       { name: "author", content: "Code Vertex Solutions" },
       { property: "og:title", content: "VertexEMS — Enterprise Employee Management" },
-      { property: "og:description", content: "Premium enterprise EMS for modern teams." },
+      { property: "og:description", content: "VertexEMS by Code Vertex Solutions — manage employees, attendance, leave, projects, tasks, and assets in one premium workspace." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "VertexEMS — Enterprise Employee Management" },
+      { name: "twitter:description", content: "VertexEMS by Code Vertex Solutions — manage employees, attendance, leave, projects, tasks, and assets in one premium workspace." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/048508fb-b1f8-4bea-8a5e-59acf65ebc5e/id-preview-98468fb4--7507a091-9bdf-44f5-946c-d4ef93d13583.lovable.app-1781170540190.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/048508fb-b1f8-4bea-8a5e-59acf65ebc5e/id-preview-98468fb4--7507a091-9bdf-44f5-946c-d4ef93d13583.lovable.app-1781170540190.png" },
     ],
     links: [
       {

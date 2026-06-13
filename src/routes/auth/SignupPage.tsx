@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Hexagon, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import type { Role } from "@/lib/mock-data";
+import type { Role } from "@/types";
 
 export function SignupPage() {
   const navigate = useNavigate();

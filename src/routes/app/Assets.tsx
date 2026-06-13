@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
@@ -11,9 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { assets, employeeById } from "@/lib/mock-data";
+import { useQuery } from "@/lib/api/query-hooks";
+import { getAssetsFn, getEmployeesFn } from "@/lib/api/app.functions";
 import { StatusBadge } from "@/components/ui-ext/status-badge";
-import { Plus, Search, Boxes } from "lucide-react";
+import { Plus, Search, Boxes, Loader2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
   Select,
@@ -26,14 +28,36 @@ import {
 export function AssetsPage() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
-  const filtered = assets.filter((a) => {
+
+  const { data: assets, isLoading: assetsLoading } = useQuery({
+    queryKey: ["assets"],
+    queryFn: getAssetsFn,
+  });
+
+  const { data: employees, isLoading: empsLoading } = useQuery({
+    queryKey: ["employees"],
+    queryFn: getEmployeesFn,
+  });
+
+  if (assetsLoading || empsLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const assetsData = assets || [];
+  const empsData = employees || [];
+
+  const filtered = assetsData.filter((a: any) => {
     if (cat !== "all" && a.category !== cat) return false;
     if (q && !`${a.name} ${a.tag} ${a.serial}`.toLowerCase().includes(q.toLowerCase()))
       return false;
     return true;
   });
 
-  const totalValue = assets.reduce((s, a) => s + a.value, 0);
+  const totalValue = assetsData.reduce((s: number, a: any) => s + a.value, 0);
 
   return (
     <>
@@ -49,9 +73,15 @@ export function AssetsPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { label: "Total assets", value: assets.length },
-          { label: "Assigned", value: assets.filter((a) => a.status === "assigned").length },
-          { label: "Available", value: assets.filter((a) => a.status === "available").length },
+          { label: "Total assets", value: assetsData.length },
+          {
+            label: "Assigned",
+            value: assetsData.filter((a: any) => a.status === "assigned").length,
+          },
+          {
+            label: "Available",
+            value: assetsData.filter((a: any) => a.status === "available").length,
+          },
           { label: "Total value", value: formatCurrency(totalValue) },
         ].map((s) => (
           <Card key={s.label} className="p-5 glass shadow-elevated">
@@ -103,7 +133,7 @@ export function AssetsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((a) => (
+              {filtered.map((a: any) => (
                 <TableRow key={a.id}>
                   <TableCell>
                     <div className="flex items-center gap-2.5">
@@ -122,7 +152,7 @@ export function AssetsPage() {
                   </TableCell>
                   <TableCell className="text-sm">
                     {a.assignedTo ? (
-                      employeeById(a.assignedTo)?.fullName
+                      empsData.find((e: any) => e.id === a.assignedTo)?.fullName
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}

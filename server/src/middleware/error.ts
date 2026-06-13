@@ -35,7 +35,11 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === "P2002") {
       return res.status(409).json({
-        error: { code: "CONFLICT", message: "A record with the same unique value already exists", details: err.meta },
+        error: {
+          code: "CONFLICT",
+          message: "A record with the same unique value already exists",
+          details: err.meta,
+        },
       });
     }
     if (err.code === "P2025") {

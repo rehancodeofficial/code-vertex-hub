@@ -45,7 +45,16 @@ import {
   uploadDocumentFn,
   deleteDocumentFn,
 } from "@/lib/api/app.functions";
-import type { Employee, Role, EmploymentStatus } from "@/lib/mock-data";
+import type {
+  Asset,
+  AttendanceRecord,
+  DocumentItem,
+  Employee,
+  EmploymentStatus,
+  LeaveRequest,
+  Project,
+  Role,
+} from "@/types";
 
 export function EmployeeProfile() {
   const { id } = useParams();
@@ -79,7 +88,7 @@ export function EmployeeProfile() {
     data: emp,
     isLoading: loadingEmp,
     error: empError,
-  } = useQuery({
+  } = useQuery<Employee>({
     queryKey: ["employee", id as string],
     queryFn: async () => {
       const res = await getEmployeeByIdFn({ data: { id: id! } });
@@ -100,27 +109,27 @@ export function EmployeeProfile() {
     },
   });
 
-  const { data: allAttendance = [] } = useQuery({
+  const { data: allAttendance = [] } = useQuery<AttendanceRecord[]>({
     queryKey: ["attendance"],
     queryFn: () => getAttendanceFn(),
   });
 
-  const { data: allLeaves = [] } = useQuery({
+  const { data: allLeaves = [] } = useQuery<LeaveRequest[]>({
     queryKey: ["leaves"],
     queryFn: () => getLeavesFn(),
   });
 
-  const { data: allProjects = [] } = useQuery({
+  const { data: allProjects = [] } = useQuery<Project[]>({
     queryKey: ["projects"],
     queryFn: () => getProjectsFn(),
   });
 
-  const { data: allDocs = [] } = useQuery({
+  const { data: allDocs = [] } = useQuery<DocumentItem[]>({
     queryKey: ["documents"],
     queryFn: () => getDocumentsFn(),
   });
 
-  const { data: allAssets = [] } = useQuery({
+  const { data: allAssets = [] } = useQuery<Asset[]>({
     queryKey: ["assets"],
     queryFn: () => getAssetsFn(),
   });

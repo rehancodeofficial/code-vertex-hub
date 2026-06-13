@@ -1,11 +1,34 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { documents, employeeById } from "@/lib/mock-data";
-import { FileText, Upload, Download } from "lucide-react";
+import { useQuery } from "@/lib/api/query-hooks";
+import { getDocumentsFn, getEmployeesFn } from "@/lib/api/app.functions";
+import { FileText, Upload, Download, Loader2 } from "lucide-react";
 import { formatDate } from "@/lib/format";
 
 export function DocumentsPage() {
+  const { data: documents, isLoading: docsLoading } = useQuery({
+    queryKey: ["documents"],
+    queryFn: getDocumentsFn,
+  });
+
+  const { data: employees, isLoading: empsLoading } = useQuery({
+    queryKey: ["employees"],
+    queryFn: getEmployeesFn,
+  });
+
+  if (docsLoading || empsLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const docsData = documents || [];
+  const empsData = employees || [];
+
   return (
     <>
       <PageHeader
@@ -19,8 +42,8 @@ export function DocumentsPage() {
       />
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {documents.map((d) => {
-          const emp = employeeById(d.employeeId);
+        {docsData.map((d: any) => {
+          const emp = empsData.find((e: any) => e.id === d.employeeId);
           return (
             <Card
               key={d.id}

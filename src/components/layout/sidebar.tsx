@@ -19,7 +19,7 @@ import {
   Hexagon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Role } from "@/lib/mock-data";
+import type { Role } from "@/types";
 
 const nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard; roles: Role[] }> = [
   {
@@ -80,7 +80,7 @@ export function Sidebar() {
 
   if (!user) return null;
 
-  const items = nav.filter((n) => n.roles.includes(user.role));
+  const items = nav.filter((n) => n.roles.includes(user.role as Role));
 
   return (
     <aside className="hidden md:flex w-64 min-w-[16rem] max-w-[16rem] flex-col border-r border-border bg-sidebar/80 backdrop-blur-xl h-screen sticky top-0">

@@ -5,16 +5,15 @@ type QueryKey = string[];
 // Global event emitter for query invalidation
 const queryEvents = new EventTarget();
 
+export const queryClient = {
+  invalidateQueries: ({ queryKey }: { queryKey: QueryKey }) => {
+    const eventName = queryKey[0] ?? JSON.stringify(queryKey); // simplistic invalidation matching the first key part
+    queryEvents.dispatchEvent(new Event(`invalidate-${eventName}`));
+  },
+};
+
 export function useQueryClient() {
-  return useMemo(
-    () => ({
-      invalidateQueries: ({ queryKey }: { queryKey: QueryKey }) => {
-        const eventName = queryKey[0] ?? JSON.stringify(queryKey); // simplistic invalidation matching the first key part
-        queryEvents.dispatchEvent(new Event(`invalidate-${eventName}`));
-      },
-    }),
-    [],
-  );
+  return useMemo(() => queryClient, []);
 }
 
 export function useQuery<T>({
@@ -92,8 +91,8 @@ export function useMutation<TData, TVariables>({
     try {
       const data = await mutationFn(vars as TVariables);
       onSuccess?.(data);
-    } catch (err: any) {
-      onError?.(err);
+    } catch (err: unknown) {
+      onError?.(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsPending(false);
     }

@@ -1,9 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from "zustand";
-import type { Role } from "./mock-data";
-import { loginUser, signupUser, logoutUser, getSession, type SessionUser } from "./api/auth";
-import { initDb } from "./api/data";
+import { AuthAPI } from "../services/api";
+import { initializeSocket, disconnectSocket } from "./socket";
 
-export type { SessionUser };
+export interface SessionUser {
+  id: string;
+  employeeId: string;
+  name: string;
+  email: string;
+  role: string;
+  status?: string;
+}
 
 interface AuthState {
   user: SessionUser | null;
@@ -15,7 +22,7 @@ interface AuthState {
     password: string,
     departmentId: string,
     designation: string,
-    role: Role,
+    role: string,
   ) => Promise<SessionUser & { isPending?: boolean }>;
   logout: () => Promise<void>;
   checkSession: () => Promise<SessionUser | null>;
@@ -25,10 +32,13 @@ export const useAuth = create<AuthState>((set) => ({
   user: null,
   loading: true,
 
-  async login(email, password) {
+  async login(email, password, remember) {
     try {
-      const user = await loginUser(email, password);
+      const res = (await AuthAPI.login({ email, password, remember })) as any;
+      const { user, accessToken, refreshToken } = res;
+      AuthAPI.saveTokens(accessToken, refreshToken);
       set({ user, loading: false });
+      initializeSocket(accessToken);
       return user;
     } catch (e: unknown) {
       const err = e as Error;
@@ -38,13 +48,22 @@ export const useAuth = create<AuthState>((set) => ({
 
   async signup(fullName, email, password, departmentId, designation, role) {
     try {
-      const res = await signupUser({ fullName, email, password, departmentId, designation, role });
-      if (res?.isPending) {
+      const res = (await AuthAPI.register({
+        fullName,
+        email,
+        password,
+        departmentId,
+        designation,
+        role,
+      })) as any;
+      if (res?.user?.isPending) {
         set({ user: null, loading: false });
-        return res;
+        return res.user;
       }
-      set({ user: res, loading: false });
-      return res;
+      AuthAPI.saveTokens(res.accessToken, res.refreshToken);
+      set({ user: res.user, loading: false });
+      initializeSocket(res.accessToken);
+      return res.user;
     } catch (e: unknown) {
       const err = e as Error;
       throw new Error(err.message || "Failed to sign up");
@@ -53,8 +72,13 @@ export const useAuth = create<AuthState>((set) => ({
 
   async logout() {
     try {
-      await logoutUser();
+      const tokens = AuthAPI.getTokens();
+      if (tokens?.refreshToken) {
+        await AuthAPI.logout(tokens.refreshToken);
+      }
     } finally {
+      AuthAPI.clearTokens();
+      disconnectSocket();
       set({ user: null, loading: false });
     }
   },
@@ -62,11 +86,19 @@ export const useAuth = create<AuthState>((set) => ({
   async checkSession() {
     set({ loading: true });
     try {
-      initDb();
-      const user = getSession();
-      set({ user, loading: false });
-      return user;
+      const tokens = AuthAPI.getTokens();
+      if (!tokens?.accessToken) {
+        set({ user: null, loading: false });
+        return null;
+      }
+
+      const res = (await AuthAPI.getMe()) as any;
+      set({ user: res.user, loading: false });
+      initializeSocket(tokens.accessToken);
+      return res.user;
     } catch {
+      AuthAPI.clearTokens();
+      disconnectSocket();
       set({ user: null, loading: false });
       return null;
     }

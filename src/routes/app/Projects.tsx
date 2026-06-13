@@ -1,14 +1,37 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/ui-ext/status-badge";
-import { projects, employeeById } from "@/lib/mock-data";
+import { useQuery } from "@/lib/api/query-hooks";
+import { getProjectsFn, getEmployeesFn } from "@/lib/api/app.functions";
 import { formatCurrency, formatDate, initials } from "@/lib/format";
-import { Plus, CalendarRange, Wallet } from "lucide-react";
+import { Plus, CalendarRange, Wallet, Loader2 } from "lucide-react";
 
 export function ProjectsPage() {
+  const { data: projects, isLoading: projectsLoading } = useQuery({
+    queryKey: ["projects"],
+    queryFn: getProjectsFn,
+  });
+
+  const { data: employees, isLoading: empsLoading } = useQuery({
+    queryKey: ["employees"],
+    queryFn: getEmployeesFn,
+  });
+
+  if (projectsLoading || empsLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const projectsData = projects || [];
+  const empsData = employees || [];
+
   return (
     <>
       <PageHeader
@@ -22,7 +45,7 @@ export function ProjectsPage() {
       />
 
       <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {projects.map((p) => (
+        {projectsData.map((p: any) => (
           <Card key={p.id} className="p-5 glass shadow-elevated flex flex-col">
             <div className="flex items-start justify-between mb-3">
               <div>
@@ -59,8 +82,8 @@ export function ProjectsPage() {
 
             <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
               <div className="flex -space-x-2">
-                {p.memberIds.slice(0, 4).map((id) => {
-                  const m = employeeById(id);
+                {(p.memberIds || []).slice(0, 4).map((id: string) => {
+                  const m = empsData.find((e: any) => e.id === id);
                   return m ? (
                     <Avatar key={id} className="size-7 ring-2 ring-card">
                       <AvatarFallback className="text-[10px] gradient-primary text-primary-foreground">
@@ -69,9 +92,9 @@ export function ProjectsPage() {
                     </Avatar>
                   ) : null;
                 })}
-                {p.memberIds.length > 4 && (
+                {(p.memberIds || []).length > 4 && (
                   <div className="size-7 rounded-full bg-muted ring-2 ring-card text-[10px] flex items-center justify-center">
-                    +{p.memberIds.length - 4}
+                    +{(p.memberIds || []).length - 4}
                   </div>
                 )}
               </div>

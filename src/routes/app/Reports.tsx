@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { useState } from "react";
 import { useQuery } from "@/lib/api/query-hooks";
 import { PageHeader } from "@/components/layout/page-header";

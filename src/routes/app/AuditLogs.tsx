@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import {
@@ -8,9 +9,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { auditLogs } from "@/lib/mock-data";
+import { useQuery } from "@/lib/api/query-hooks";
+import { getAuditLogsFn } from "@/lib/api/app.functions";
 import { Badge } from "@/components/ui/badge";
 import { relativeTime } from "@/lib/format";
+import { Loader2 } from "lucide-react";
 
 const actionStyle: Record<string, string> = {
   CREATE: "bg-[--color-success]/15 text-[--color-success] border-[--color-success]/30",
@@ -21,6 +24,21 @@ const actionStyle: Record<string, string> = {
 };
 
 export function AuditLogsPage() {
+  const { data: auditLogs, isLoading } = useQuery({
+    queryKey: ["auditLogs"],
+    queryFn: getAuditLogsFn,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const logsData = auditLogs || [];
+
   return (
     <>
       <PageHeader
@@ -39,7 +57,7 @@ export function AuditLogsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {auditLogs.map((l) => (
+            {logsData.map((l: any) => (
               <TableRow key={l.id}>
                 <TableCell className="font-medium text-sm">{l.actor}</TableCell>
                 <TableCell>

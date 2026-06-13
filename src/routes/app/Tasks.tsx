@@ -1,10 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { tasks, employeeById, projectById } from "@/lib/mock-data";
+import { useQuery } from "@/lib/api/query-hooks";
+import { getTasksFn, getEmployeesFn, getProjectsFn } from "@/lib/api/app.functions";
 import { StatusBadge } from "@/components/ui-ext/status-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { formatDate, initials } from "@/lib/format";
 
 const columns = [
@@ -15,6 +17,33 @@ const columns = [
 ] as const;
 
 export function TasksPage() {
+  const { data: tasks, isLoading: tasksLoading } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: getTasksFn,
+  });
+
+  const { data: employees, isLoading: empsLoading } = useQuery({
+    queryKey: ["employees"],
+    queryFn: getEmployeesFn,
+  });
+
+  const { data: projects, isLoading: projectsLoading } = useQuery({
+    queryKey: ["projects"],
+    queryFn: getProjectsFn,
+  });
+
+  if (tasksLoading || empsLoading || projectsLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const tasksData = tasks || [];
+  const empsData = employees || [];
+  const projectsData = projects || [];
+
   return (
     <>
       <PageHeader
@@ -28,7 +57,7 @@ export function TasksPage() {
       />
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {columns.map((col) => {
-          const items = tasks.filter((t) => t.status === col.id);
+          const items = tasksData.filter((t: any) => t.status === col.id);
           return (
             <Card key={col.id} className="glass shadow-elevated p-4 min-h-96">
               <div className="flex items-center justify-between mb-3">
@@ -38,8 +67,8 @@ export function TasksPage() {
                 </span>
               </div>
               <div className="space-y-2">
-                {items.map((t) => {
-                  const a = employeeById(t.assigneeId);
+                {items.map((t: any) => {
+                  const a = empsData.find((e: any) => e.id === t.assigneeId);
                   return (
                     <div
                       key={t.id}
@@ -50,7 +79,7 @@ export function TasksPage() {
                         <StatusBadge status={t.priority} />
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {projectById(t.projectId)?.name}
+                        {projectsData.find((p: any) => p.id === t.projectId)?.name}
                       </div>
                       <div className="mt-3 flex items-center justify-between">
                         <Avatar className="size-6">

@@ -12,7 +12,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { initials } from "@/lib/format";
-import { notifications } from "@/lib/mock-data";
+import { useQuery } from "@/lib/api/query-hooks";
+import { getNotificationsFn } from "@/lib/api/app.functions";
+import type { Notification } from "@/types";
 
 const roleLabels: Record<string, string> = {
   admin: "Administrator",
@@ -27,6 +29,12 @@ export function Topbar() {
   const user = useAuth((s) => s.user);
   const logout = useAuth((s) => s.logout);
   const navigate = useNavigate();
+
+  const { data: notifications = [] } = useQuery<Notification[]>({
+    queryKey: ["notifications"],
+    queryFn: getNotificationsFn,
+  });
+
   if (!user) return null;
 
   const unread = notifications.filter((n) => n.unread).length;

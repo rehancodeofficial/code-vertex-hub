@@ -1,5 +1,4 @@
 import path from "node:path";
-import fs from "node:fs";
 import { Router } from "express";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
@@ -13,15 +12,11 @@ import { created, ok } from "../utils/api-response.js";
 import { audit } from "../utils/audit.js";
 import { getPagination, pageMeta, paginationQuerySchema } from "../utils/pagination.js";
 import { serializeDocument } from "../utils/serializers.js";
-import { config } from "../config.js";
+import { supabase } from "../supabase.js";
 
 export const documentsRouter = Router();
 
-const UPLOAD_DIR = path.resolve(config.UPLOAD_DIR);
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
-
-// Ensure upload directory exists at startup
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -32,14 +27,7 @@ const ALLOWED_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
 
-const multerStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${uniqueSuffix}${ext}`);
-  },
-});
+const multerStorage = multer.memoryStorage();
 
 const upload = multer({
   storage: multerStorage,
@@ -118,13 +106,35 @@ documentsRouter.post(
     const meta = documentMetaSchema.parse(req.body);
     const sizeKb = Math.ceil(req.file.size / 1024);
 
+    // Generate unique storage key
+    const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    const storageKey = `${uniqueSuffix}${ext}`;
+
+    // Upload buffer to Supabase Storage bucket 'documents'
+    const { error: uploadError } = await supabase.storage
+      .from("documents")
+      .upload(storageKey, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Supabase storage upload error:", uploadError);
+      throw new ApiError(
+        500,
+        "STORAGE_UPLOAD_FAILED",
+        `Failed to save file to cloud storage: ${uploadError.message}`,
+      );
+    }
+
     const document = await prisma.documentItem.create({
       data: {
         name: meta.name,
         type: meta.type,
         employeeId: meta.employeeId,
         uploadedById: req.user!.employeeId,
-        storageKey: req.file.filename,
+        storageKey,
         mimeType: req.file.mimetype,
         sizeKb,
       },
@@ -149,12 +159,21 @@ documentsRouter.get(
       throw new ApiError(403, "FORBIDDEN", "You do not have access to this document");
     }
 
-    const filePath = path.join(UPLOAD_DIR, document.storageKey);
-    if (!fs.existsSync(filePath)) {
-      throw new ApiError(404, "FILE_NOT_FOUND", "The file could not be found in storage");
+    // Generate a temporary signed URL for file download
+    const { data, error } = await supabase.storage
+      .from("documents")
+      .createSignedUrl(document.storageKey, 60);
+
+    if (error || !data?.signedUrl) {
+      console.error("Supabase signed URL error:", error);
+      throw new ApiError(
+        404,
+        "FILE_NOT_FOUND",
+        "The file could not be retrieved from cloud storage",
+      );
     }
 
-    res.download(filePath, document.name);
+    res.redirect(data.signedUrl);
   }),
 );
 
@@ -166,13 +185,18 @@ documentsRouter.delete(
   asyncHandler(async (req, res) => {
     const { id } = req.params as z.infer<typeof idParams>;
     const document = await prisma.documentItem.findUniqueOrThrow({ where: { id } });
-    const filePath = path.join(UPLOAD_DIR, document.storageKey);
 
-    // Delete DB record first, then attempt file removal (best-effort)
+    // Delete DB record first
     await prisma.documentItem.delete({ where: { id } });
-    fs.unlink(filePath, (err) => {
-      if (err) console.warn(`Document file not found for cleanup: ${filePath}`);
-    });
+
+    // Attempt best-effort file removal from Supabase Storage
+    const { error: deleteError } = await supabase.storage
+      .from("documents")
+      .remove([document.storageKey]);
+
+    if (deleteError) {
+      console.warn(`Failed to clean up Supabase storage file ${document.storageKey}:`, deleteError);
+    }
 
     await audit(req, "document.delete", `document:${id}`);
     ok(res, { success: true });

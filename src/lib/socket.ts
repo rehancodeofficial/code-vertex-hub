@@ -6,6 +6,11 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "/";
 let socket: Socket | null = null;
 
 export const initializeSocket = (token: string) => {
+  if (!SOCKET_URL || SOCKET_URL === "disabled" || SOCKET_URL === "/") {
+    console.log("Realtime socket is disabled in serverless mode.");
+    return null;
+  }
+
   if (socket) {
     socket.disconnect();
   }

@@ -68,3 +68,47 @@ settingsRouter.patch(
     ok(res, settings);
   }),
 );
+
+const preferencesBodySchema = z.object({
+  email: z.boolean().optional(),
+  inApp: z.boolean().optional(),
+  leave: z.boolean().optional(),
+  task: z.boolean().optional(),
+  report: z.boolean().optional(),
+  security: z.boolean().optional(),
+});
+
+settingsRouter.get(
+  "/preferences",
+  asyncHandler(async (req, res) => {
+    const employeeId = req.user!.employeeId;
+    let preferences = await prisma.notificationPreference.findUnique({
+      where: { employeeId },
+    });
+
+    if (!preferences) {
+      preferences = await prisma.notificationPreference.create({
+        data: { employeeId },
+      });
+    }
+
+    ok(res, preferences);
+  }),
+);
+
+settingsRouter.patch(
+  "/preferences",
+  validate({ body: preferencesBodySchema }),
+  asyncHandler(async (req, res) => {
+    const employeeId = req.user!.employeeId;
+    const input = req.body as z.infer<typeof preferencesBodySchema>;
+
+    const preferences = await prisma.notificationPreference.upsert({
+      where: { employeeId },
+      create: { employeeId, ...input },
+      update: input,
+    });
+
+    ok(res, preferences);
+  }),
+);

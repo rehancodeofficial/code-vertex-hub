@@ -1,6 +1,11 @@
 import "dotenv/config";
 import { z } from "zod";
 
+// Fallback DIRECT_URL to DATABASE_URL if missing to prevent startup failures on single-URL setups
+if (process.env.DATABASE_URL && !process.env.DIRECT_URL) {
+  process.env.DIRECT_URL = process.env.DATABASE_URL;
+}
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(4000),
